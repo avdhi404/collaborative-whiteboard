@@ -11,6 +11,8 @@
 </head>
 <body>
     <canvas id="whiteboard" width="800" height="600"></canvas>
+    <button id="eraser">Eraser</button>
+    <button id="draw">Draw</button>
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
@@ -18,11 +20,26 @@
         const ctx = canvas.getContext('2d');
 
         let drawing = false;
+        let isEraser = false; // Track if the eraser is active
 
+        // Event listeners for drawing
         canvas.addEventListener('mousedown', startDrawing);
         canvas.addEventListener('mousemove', draw);
         canvas.addEventListener('mouseup', stopDrawing);
         canvas.addEventListener('mouseout', stopDrawing);
+
+        // Event listeners for eraser and draw buttons
+        document.getElementById('eraser').addEventListener('click', () => {
+            isEraser = true;
+            ctx.strokeStyle = 'white'; // Set eraser color to match canvas background
+            ctx.lineWidth = 10; // Make eraser wider
+        });
+
+        document.getElementById('draw').addEventListener('click', () => {
+            isEraser = false;
+            ctx.strokeStyle = 'black'; // Set drawing color
+            ctx.lineWidth = 2; // Reset line width
+        });
 
         function startDrawing(event) {
             drawing = true;
@@ -35,10 +52,16 @@
             const x = event.offsetX;
             const y = event.offsetY;
 
-            ctx.lineTo(x, y);
-            ctx.stroke();
-
-            socket.emit('draw', { x, y });
+            if (isEraser) {
+                // Eraser functionality
+                ctx.clearRect(x - 5, y - 5, 10, 10); // Clear a small rectangle
+                socket.emit('erase', { x, y });
+            } else {
+                // Drawing functionality
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                socket.emit('draw', { x, y });
+            }
         }
 
         function stopDrawing() {
@@ -46,10 +69,17 @@
             ctx.beginPath();
         }
 
+        // Handle incoming draw events
         socket.on('draw', (data) => {
             const { x, y } = data;
             ctx.lineTo(x, y);
             ctx.stroke();
+        });
+
+        // Handle incoming erase events
+        socket.on('erase', (data) => {
+            const { x, y } = data;
+            ctx.clearRect(x - 5, y - 5, 10, 10);
         });
     </script>
 </body>
